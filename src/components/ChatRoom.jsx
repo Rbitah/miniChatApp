@@ -20,20 +20,28 @@ const ChatRoom = () => {
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      if (userDoc.exists()) {
-        setCurrentUserName(userDoc.data().name);
+      try {
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (userDoc.exists()) {
+          setCurrentUserName(userDoc.data().name);
+        }
+      } catch (error) {
+        console.error("Error fetching current user: ", error);
       }
     };
     fetchCurrentUser();
 
     if (userId) {
       const fetchUser = async () => {
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        if (userDoc.exists()) {
-          setSelectedUser(userDoc.data());
-        } else {
-          console.error("User not found");
+        try {
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          if (userDoc.exists()) {
+            setSelectedUser(userDoc.data());
+          } else {
+            console.error("User not found");
+          }
+        } catch (error) {
+          console.error("Error fetching selected user: ", error);
         }
       };
       fetchUser();
@@ -63,14 +71,18 @@ const ChatRoom = () => {
 
   const sendMessage = async (text = '', audioURL = '') => {
     if (text.trim() || audioURL) {
-      await addDoc(collection(db, 'messages'), {
-        text,
-        audioURL, // Include audio URL in the message
-        receiverId: userId,
-        senderId: auth.currentUser.uid,
-        timestamp: new Date(),
-      });
-      setMessage('');
+      try {
+        await addDoc(collection(db, 'messages'), {
+          text,
+          audioURL, // Include audio URL in the message
+          receiverId: userId,
+          senderId: auth.currentUser.uid,
+          timestamp: new Date(),
+        });
+        setMessage('');
+      } catch (error) {
+        console.error("Error sending message: ", error);
+      }
     }
   };
 
@@ -105,12 +117,16 @@ const ChatRoom = () => {
 
   const uploadAndSendAudio = async () => {
     if (audioBlob) {
-      const audioRef = ref(storage, `audioMessages/${new Date().toISOString()}.webm`);
-      await uploadBytes(audioRef, audioBlob);
-      const audioURL = await getDownloadURL(audioRef);
+      try {
+        const audioRef = ref(storage, `audioMessages/${new Date().toISOString()}.webm`);
+        await uploadBytes(audioRef, audioBlob);
+        const audioURL = await getDownloadURL(audioRef);
 
-      sendMessage('', audioURL); 
-      setAudioBlob(null);
+        await sendMessage('', audioURL); 
+        setAudioBlob(null);
+      } catch (error) {
+        console.error("Error uploading audio: ", error);
+      }
     }
   };
 
@@ -168,7 +184,7 @@ const ChatRoom = () => {
             placeholder="Type a message"
           />
           <div className="flex space-x-2">
-            <button onClick={sendMessage} className="bg-blue-500 text-white p-2 rounded-lg mt-2 w-full">
+            <button onClick={() => sendMessage(message)} className="bg-blue-500 text-white p-2 rounded-lg mt-2 w-full">
               Send
             </button>
             {isRecording ? (
@@ -180,7 +196,7 @@ const ChatRoom = () => {
                 Record Voice Note
               </button>
             )}
-            {audioBlob && (
+            {audioBlob && !isRecording && (
               <button onClick={uploadAndSendAudio} className="bg-yellow-500 text-white p-2 rounded-lg mt-2 w-full">
                 Send Voice Note
               </button>
