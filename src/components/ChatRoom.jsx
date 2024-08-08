@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { auth, db, storage } from '../firebase'; 
 import { collection, addDoc, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; 
+import { MicrophoneIcon, StopIcon, PaperAirplaneIcon, MusicalNoteIcon } from '@heroicons/react/24/outline'; // Corrected icon import
 
 const ChatRoom = () => {
   const [messages, setMessages] = useState([]);
@@ -74,7 +75,7 @@ const ChatRoom = () => {
       try {
         await addDoc(collection(db, 'messages'), {
           text,
-          audioURL, // Include audio URL in the message
+          audioURL,
           receiverId: userId,
           senderId: auth.currentUser.uid,
           timestamp: new Date(),
@@ -183,22 +184,22 @@ const ChatRoom = () => {
             className="w-full p-2 border rounded-lg"
             placeholder="Type a message"
           />
-          <div className="flex space-x-2">
-            <button onClick={() => sendMessage(message)} className="bg-blue-500 text-white p-2 rounded-lg mt-2 w-full">
-              Send
+          <div className="flex space-x-2 items-center">
+            <button onClick={() => sendMessage(message)} className="bg-blue-500 text-white p-2 rounded-lg mt-2 flex items-center">
+              <PaperAirplaneIcon className="h-5 w-5" />
             </button>
             {isRecording ? (
-              <button onClick={stopRecording} className="bg-red-500 text-white p-2 rounded-lg mt-2 w-full">
-                Stop Recording
+              <button onClick={stopRecording} className="bg-red-500 text-white p-2 rounded-lg mt-2 flex items-center">
+                <StopIcon className="h-5 w-5" />
               </button>
             ) : (
-              <button onClick={startRecording} className="bg-green-500 text-white p-2 rounded-lg mt-2 w-full">
-                Record Voice Note
+              <button onClick={startRecording} className="bg-green-500 text-white p-2 rounded-lg mt-2 flex items-center">
+                <MicrophoneIcon className="h-5 w-5" />
               </button>
             )}
             {audioBlob && !isRecording && (
-              <button onClick={uploadAndSendAudio} className="bg-yellow-500 text-white p-2 rounded-lg mt-2 w-full">
-                Send Voice Note
+              <button onClick={uploadAndSendAudio} className="bg-yellow-500 text-white p-2 rounded-lg mt-2 flex items-center">
+                <MusicalNoteIcon className="h-5 w-5" />
               </button>
             )}
           </div>
