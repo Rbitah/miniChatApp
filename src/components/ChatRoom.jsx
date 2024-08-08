@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { auth, db, storage } from '../firebase';
+import { auth, db, storage } from '../firebase'; // Import Firebase Storage
 import { collection, addDoc, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { FaMicrophone, FaStop } from 'react-icons/fa';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // For uploading and getting audio URL
 
 const ChatRoom = () => {
   const [messages, setMessages] = useState([]);
@@ -11,13 +10,13 @@ const ChatRoom = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [currentUserName, setCurrentUserName] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
   const [audioBlob, setAudioBlob] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
   const userId = params.get('userId');
   const scrollRef = useRef();
+  const mediaRecorderRef = useRef(null);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -62,56 +61,56 @@ const ChatRoom = () => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const startRecording = () => {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        const recorder = new MediaRecorder(stream);
-        recorder.start();
-        setMediaRecorder(recorder);
-        setIsRecording(true);
-
-        const audioChunks = [];
-        recorder.ondataavailable = event => {
-          audioChunks.push(event.data);
-        };
-
-        recorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/mpeg' });
-          setAudioBlob(audioBlob);
-          setIsRecording(false);
-        };
-      })
-      .catch(err => console.error("Error accessing media devices.", err));
-  };
-
-  const stopRecording = async () => {
-    if (mediaRecorder) {
-      mediaRecorder.stop();
-
-      const audioRef = ref(storage, `voiceNotes/${Date.now()}_${auth.currentUser.uid}.mp3`);
-      await uploadBytes(audioRef, audioBlob);
-
-      const audioURL = await getDownloadURL(audioRef);
+  const sendMessage = async (text = '', audioURL = '') => {
+    if (text.trim() || audioURL) {
       await addDoc(collection(db, 'messages'), {
-        audio: audioURL,
-        receiverId: userId,
-        senderId: auth.currentUser.uid,
-        timestamp: new Date(),
-      });
-
-      setAudioBlob(null);
-    }
-  };
-
-  const sendMessage = async () => {
-    if (message.trim()) {
-      await addDoc(collection(db, 'messages'), {
-        text: message,
+        text,
+        audioURL, // Include audio URL in the message
         receiverId: userId,
         senderId: auth.currentUser.uid,
         timestamp: new Date(),
       });
       setMessage('');
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current.start();
+
+      const chunks = [];
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        chunks.push(event.data);
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        setAudioBlob(blob);
+      };
+
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const uploadAndSendAudio = async () => {
+    if (audioBlob) {
+      const audioRef = ref(storage, `audioMessages/${new Date().toISOString()}.webm`);
+      await uploadBytes(audioRef, audioBlob);
+      const audioURL = await getDownloadURL(audioRef);
+
+      sendMessage('', audioURL); // Send the audio URL as a message
+      setAudioBlob(null);
     }
   };
 
@@ -144,10 +143,12 @@ const ChatRoom = () => {
                   <p className="font-semibold">
                     {msg.senderId === auth.currentUser.uid ? currentUserName : selectedUser?.name}
                   </p>
-                  {msg.text ? (
-                    <p>{msg.text}</p>
-                  ) : (
-                    <audio controls src={msg.audio} />
+                  {msg.text && <p>{msg.text}</p>}
+                  {msg.audioURL && (
+                    <audio controls>
+                      <source src={msg.audioURL} type="audio/webm" />
+                      Your browser does not support the audio element.
+                    </audio>
                   )}
                   <small className="text-xs text-gray-500">{new Date(msg.timestamp.toDate()).toLocaleTimeString()}</small>
                 </div>
@@ -159,23 +160,31 @@ const ChatRoom = () => {
           <div ref={scrollRef} />
         </div>
         <div className="p-4 border-t border-gray-300 bg-white">
-          <div className="flex items-center">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full p-2 border rounded-lg"
-              placeholder="Type a message"
-            />
-            <button onClick={sendMessage} className="bg-blue-500 text-white p-2 rounded-lg ml-2">
+          <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="w-full p-2 border rounded-lg"
+            placeholder="Type a message"
+          />
+          <div className="flex space-x-2">
+            <button onClick={sendMessage} className="bg-blue-500 text-white p-2 rounded-lg mt-2 w-full">
               Send
             </button>
-            <button
-              onClick={isRecording ? stopRecording : startRecording}
-              className="ml-2 p-2 rounded-lg"
-            >
-              {isRecording ? <FaStop className="text-red-500" /> : <FaMicrophone className="text-green-500" />}
-            </button>
+            {isRecording ? (
+              <button onClick={stopRecording} className="bg-red-500 text-white p-2 rounded-lg mt-2 w-full">
+                Stop Recording
+              </button>
+            ) : (
+              <button onClick={startRecording} className="bg-green-500 text-white p-2 rounded-lg mt-2 w-full">
+                Record Voice Note
+              </button>
+            )}
+            {audioBlob && (
+              <button onClick={uploadAndSendAudio} className="bg-yellow-500 text-white p-2 rounded-lg mt-2 w-full">
+                Send Voice Note
+              </button>
+            )}
           </div>
         </div>
       </div>
