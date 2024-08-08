@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { auth, db, storage } from '../firebase'; 
 import { collection, addDoc, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; 
-import { MicrophoneIcon, StopIcon, PaperAirplaneIcon, MusicalNoteIcon } from '@heroicons/react/24/outline';
+import { MicrophoneIcon, StopIcon, PaperAirplaneIcon, PaperClipIcon } from '@heroicons/react/24/outline';
 
 const ChatRoom = () => {
   const [messages, setMessages] = useState([]);
@@ -12,6 +12,7 @@ const ChatRoom = () => {
   const [currentUserName, setCurrentUserName] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
+  const [file, setFile] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
@@ -70,17 +71,20 @@ const ChatRoom = () => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = async (text = '', audioURL = '') => {
-    if (text.trim() || audioURL) {
+  const sendMessage = async (text = '', audioURL = '', fileURL = '', fileType = '') => {
+    if (text.trim() || audioURL || fileURL) {
       try {
         await addDoc(collection(db, 'messages'), {
           text,
           audioURL,
+          fileURL,
+          fileType,
           receiverId: userId,
           senderId: auth.currentUser.uid,
           timestamp: new Date(),
         });
         setMessage('');
+        setFile(null);
       } catch (error) {
         console.error("Error sending message: ", error);
       }
@@ -131,6 +135,31 @@ const ChatRoom = () => {
     }
   };
 
+  const uploadAndSendFile = async () => {
+    if (file) {
+      try {
+        const fileRef = ref(storage, `files/${new Date().toISOString()}_${file.name}`);
+        await uploadBytes(fileRef, file);
+        const fileURL = await getDownloadURL(fileRef);
+        const fileType = file.type;
+
+        await sendMessage('', '', fileURL, fileType); 
+      } catch (error) {
+        console.error("Error uploading file: ", error);
+      }
+    }
+  };
+
+  const handleSend = () => {
+    if (audioBlob) {
+      uploadAndSendAudio();
+    } else if (file) {
+      uploadAndSendFile();
+    } else {
+      sendMessage(message);
+    }
+  };
+
   return (
     <div className="flex h-screen">
       <div className="w-1/3 bg-gray-200 p-4 border-r border-gray-300">
@@ -167,6 +196,20 @@ const ChatRoom = () => {
                       Your browser does not support the audio element.
                     </audio>
                   )}
+                  {msg.fileURL && (
+                    msg.fileType.startsWith('image/') ? (
+                      <img src={msg.fileURL} alt="file" className="max-w-full h-auto" />
+                    ) : msg.fileType.startsWith('video/') ? (
+                      <video controls className="max-w-full h-auto">
+                        <source src={msg.fileURL} type={msg.fileType} />
+                        Your browser does not support the video tag.
+                      </video>
+                    ) : (
+                      <a href={msg.fileURL} target="_blank" rel="noopener noreferrer">
+                        Download {msg.fileType}
+                      </a>
+                    )
+                  )}
                   <small className="text-xs text-gray-500">{new Date(msg.timestamp.toDate()).toLocaleTimeString()}</small>
                 </div>
               </div>
@@ -184,6 +227,15 @@ const ChatRoom = () => {
             className="w-full p-2 border rounded-lg"
             placeholder="Type a message"
           />
+          <input 
+            type="file" 
+            onChange={(e) => setFile(e.target.files[0])}
+            className="hidden" 
+            id="fileInput"
+          />
+          <label htmlFor="fileInput" className="bg-gray-500 text-white p-2 rounded-lg flex items-center cursor-pointer">
+            <PaperClipIcon className="h-5 w-5" />
+          </label>
           {isRecording ? (
             <button onClick={stopRecording} className="bg-red-500 text-white p-2 rounded-lg flex items-center">
               <StopIcon className="h-5 w-5" />
@@ -198,7 +250,7 @@ const ChatRoom = () => {
               <MusicalNoteIcon className="h-5 w-5" />
             </button>
           )}
-          <button onClick={() => sendMessage(message)} className="bg-blue-500 text-white p-2 rounded-lg flex items-center">
+          <button onClick={handleSend} className="bg-blue-500 text-white p-2 rounded-lg flex items-center">
             <PaperAirplaneIcon className="h-5 w-5" />
           </button>
         </div>
