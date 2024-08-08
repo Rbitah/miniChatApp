@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { auth, db, storage } from '../firebase'; // Import Firebase Storage
+import { auth, db, storage } from '../firebase'; 
 import { collection, addDoc, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // For uploading and getting audio URL
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'; 
 
 const ChatRoom = () => {
   const [messages, setMessages] = useState([]);
@@ -109,7 +109,7 @@ const ChatRoom = () => {
       await uploadBytes(audioRef, audioBlob);
       const audioURL = await getDownloadURL(audioRef);
 
-      sendMessage('', audioURL); // Send the audio URL as a message
+      sendMessage('', audioURL); 
       setAudioBlob(null);
     }
   };

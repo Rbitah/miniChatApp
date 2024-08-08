@@ -4,7 +4,10 @@ import ChatRoom from "./components/ChatRoom";
 import Signin from "./components/Signin";
 import Signup from "./components/Signup";
 
-const router = createBrowserRouter([
+const router = createBrowserRouter([{
+    path: "/home",
+    element: <Home />,
+  },
   {
     path: "/",
     element: <Home />,
@@ -20,6 +23,9 @@ const router = createBrowserRouter([
   {
     path: "/signup",
     element: <Signup />,
+  }, {
+    path: "*",
+    element: <Signin/>
   },
 ]);
 

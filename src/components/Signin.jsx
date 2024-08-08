@@ -19,7 +19,7 @@ const Signin = () => {
       );
       const user = userCredential.user;
       console.log(user);
-      navigate("/");
+      navigate("/home");
     } catch (error) {
       setError(error.message);
     }
@@ -57,6 +57,7 @@ const Signin = () => {
           >
             Sign In
           </button>
+          <p>Dont have a account?<a href="/signup">signup</a></p>
         </form>
       </div>
     </div>
